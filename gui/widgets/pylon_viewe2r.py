@@ -7,19 +7,21 @@ import cv2
 import time
 from threading import Thread
 import os
-from pypylon import pylon
 
+from pypylon import pylon
+class ConfigurationEventListener(pylon.ConfigurationEventHandler):
+    """
+        Contains a Configuration Event Handler that prints a message for each event method call.
+    """
+    def OnCameraDeviceRemoved(self, camera):
+        logger.info(
+            f"\n\n\n\nOnCameraDeviceRemoved event for device {camera.GetDeviceInfo().GetModelName()}")
 
 def init_camera(time_for_capture):
     # conecting to the first available camera
     camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
 
-    try:
 
-        camera.RegisterConfiguration(PylonViewer(), pylon.RegistrationMode_Append, pylon.Cleanup_Delete)
-    
-    except Exception as e :
-        print("\n\n\n \n\n!%$$$$$$$$$$$$$$$$$", e,"\n\n\n\n")
     camera.MaxNumBuffer = 5000
 
     # Grabing Continusely (video) with minimal delay
@@ -78,18 +80,12 @@ logger.error('error message')
 logger.critical('critical message')
 
 
-class PylonViewer(Image, pylon.ConfigurationEventHandler):
+class PylonViewer(Image):
     capture = None
-    camera = None
+
     def __init__(self, **kwargs):
         super(PylonViewer, self).__init__(**kwargs)
         logger.debug('> __init__()')
-
-    def OnCameraDeviceRemoved(self, camera):
-        #self.capture = cv2.imread("brainiac.jpg")
-        self.stop()
-        logger.info(
-            f"\n\n\n\n wilson OnCameraDeviceRemoved event for device {camera.GetDeviceInfo().GetModelName()}")
 
 
     def start(self, fps=30):
@@ -112,43 +108,31 @@ class PylonViewer(Image, pylon.ConfigurationEventHandler):
                 print("\n\n\n \n\n", e)
 
             print('start 3')
-        Clock.schedule_interval(self.update, 0.2 / fps)
+        Clock.schedule_interval(self.update, 1.0 / fps)
         print('start 4')
         logger.debug('< Start()')
     
     def stop(self):
-        print('\n\n\n\n\n> stop()')
-        if(self.camera):
-            self.camera.StopGrabbing()
-            self.camera.DestroyDevice()
-
-        self.capture = cv2.imread("./brainiac.jpg")
-
-        print('\n\n\n\n\n> unschedule()')
+        logger.debug('> stop()')
+        self.capture = None
         Clock.unschedule(self.update)
-            
-
 
     def update(self, dt):
         try:
             logger.debug('> __update()')
             #return_value, frame = self.capture.read()
-            self.capture = get_photo(self.camera, self.converter)
-        except Exception as e :
-            pass
-        
-        try:
+            
+            frame = get_photo(self.camera, self.converter)
             texture = self.texture
-            w, h = self.capture.shape[1], self.capture.shape[0]
+            w, h = frame.shape[1], frame.shape[0]
             if not texture or texture.width != w or texture.height != h:
                 self.texture = texture = Texture.create(size=(w, h))
                 texture.flip_vertical()
-            texture.blit_buffer(self.capture.tobytes(), colorfmt='bgr')
+            texture.blit_buffer(frame.tobytes(), colorfmt='bgr')
             self.canvas.ask_update()
+
         except Exception as e :
-            pass
-
-
+            print("\n\n\n \n\n", e)
 
 
 
